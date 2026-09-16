@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { getMembers, getTags, type OrgMember, type Tag } from "@/lib/api-client";
 import { formatDate } from "@/lib/utils";
-import { Plus, Trash2, UserPlus } from "lucide-react";
+import { Plus, Trash2, UserPlus, Bell, Building2, Users, Tags, Save } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 
-type SettingsTab = "general" | "members" | "tags";
+type SettingsTab = "general" | "members" | "tags" | "notifications";
 
 const ROLE_LABELS: Record<string, string> = {
   owner: "Owner",
@@ -33,6 +35,16 @@ export default function SettingsPage() {
   const [newTagKey, setNewTagKey] = useState("");
   const [newTagValue, setNewTagValue] = useState("");
 
+  // Notifications form
+  const [emailAlerts, setEmailAlerts] = useState(true);
+  const [alertEmail, setAlertEmail] = useState("admin@company.com");
+  const [slackWebhook, setSlackWebhook] = useState("");
+  const [alertThreshold, setAlertThreshold] = useState<"all" | "warning_critical" | "critical_only">("warning_critical");
+  const [weeklyDigest, setWeeklyDigest] = useState(true);
+
+  const { toast } = useToast();
+  const { confirm, dialogProps, ConfirmDialog: ConfirmDialogComponent } = useConfirmDialog();
+
   useEffect(() => {
     Promise.all([getMembers(), getTags()]).then(([m, t]) => {
       setMembers(m);
@@ -40,6 +52,11 @@ export default function SettingsPage() {
       setLoading(false);
     });
   }, []);
+
+  const handleSaveGeneral = (e: React.FormEvent) => {
+    e.preventDefault();
+    toast("Organization settings saved");
+  };
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,11 +70,20 @@ export default function SettingsPage() {
     };
     setMembers([...members, newMember]);
     setShowInvite(false);
+    toast(`Invite sent to ${inviteEmail}`);
     setInviteEmail("");
   };
 
-  const handleRemoveMember = (id: string) => {
-    setMembers(members.filter((m) => m.id !== id));
+  const handleRemoveMember = async (id: string, name: string) => {
+    const confirmed = await confirm({
+      title: "Remove team member",
+      message: `Are you sure you want to remove "${name}" from this organization? They will lose access to SpendGuard immediately.`,
+      confirmLabel: "Remove member",
+    });
+    if (confirmed) {
+      setMembers(members.filter((m) => m.id !== id));
+      toast(`Removed ${name}`, "info");
+    }
   };
 
   const handleAddTag = (e: React.FormEvent) => {
@@ -70,12 +96,26 @@ export default function SettingsPage() {
       usageCount: 0,
     };
     setTags([...tags, newTag]);
+    toast(`Tag "${newTagKey}: ${newTagValue}" added`);
     setNewTagKey("");
     setNewTagValue("");
   };
 
-  const handleRemoveTag = (id: string) => {
-    setTags(tags.filter((t) => t.id !== id));
+  const handleRemoveTag = async (id: string, key: string, value: string) => {
+    const confirmed = await confirm({
+      title: "Delete tag",
+      message: `Are you sure you want to delete tag "${key}: ${value}"? Records with this tag will retain it as legacy data.`,
+      confirmLabel: "Delete tag",
+    });
+    if (confirmed) {
+      setTags(tags.filter((t) => t.id !== id));
+      toast(`Tag "${key}: ${value}" deleted`, "info");
+    }
+  };
+
+  const handleSaveNotifications = (e: React.FormEvent) => {
+    e.preventDefault();
+    toast("Notification settings saved");
   };
 
   return (
@@ -86,28 +126,33 @@ export default function SettingsPage() {
       <div className="flex gap-1 border-b border-gray-200 mb-6">
         {(
           [
-            { key: "general", label: "General" },
-            { key: "members", label: "Members" },
-            { key: "tags", label: "Tags" },
+            { key: "general", label: "General", icon: Building2 },
+            { key: "members", label: "Members", icon: Users },
+            { key: "tags", label: "Tags", icon: Tags },
+            { key: "notifications", label: "Notifications", icon: Bell },
           ] as const
-        ).map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`text-sm px-3 py-2 -mb-px transition-colors ${
-              tab === t.key
-                ? "border-b-2 border-brand-500 text-brand-700 font-medium"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+        ).map((t) => {
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex items-center gap-1.5 text-sm px-3 py-2 -mb-px transition-colors ${
+                tab === t.key
+                  ? "border-b-2 border-brand-500 text-brand-700 font-medium"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <Icon size={14} />
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* General */}
       {tab === "general" && (
-        <div className="max-w-lg space-y-4">
+        <form onSubmit={handleSaveGeneral} className="max-w-lg space-y-4">
           <div>
             <label
               htmlFor="settings-org-name"
@@ -144,10 +189,14 @@ export default function SettingsPage() {
               <option value="Asia/Kolkata">India (IST)</option>
             </select>
           </div>
-          <button className="bg-brand-600 text-white text-sm font-medium rounded px-4 py-2 hover:bg-brand-700 transition-colors">
+          <button
+            type="submit"
+            className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium rounded px-4 py-2 hover:bg-brand-700 transition-colors"
+          >
+            <Save size={14} />
             Save Changes
           </button>
-        </div>
+        </form>
       )}
 
       {/* Members */}
@@ -195,11 +244,12 @@ export default function SettingsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-gray-500">{formatDate(m.joinedAt)}</td>
-                      <td className="px-4 py-2.5">
+                      <td className="px-4 py-2.5 text-right">
                         {m.role !== "owner" && (
                           <button
-                            onClick={() => handleRemoveMember(m.id)}
+                            onClick={() => handleRemoveMember(m.id, m.name)}
                             className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                            title="Remove member"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -343,10 +393,11 @@ export default function SettingsPage() {
                       <td className="px-4 py-2.5 text-right text-gray-500 tabular-nums">
                         {t.usageCount.toLocaleString()}
                       </td>
-                      <td className="px-4 py-2.5">
+                      <td className="px-4 py-2.5 text-right">
                         <button
-                          onClick={() => handleRemoveTag(t.id)}
+                          onClick={() => handleRemoveTag(t.id, t.key, t.value)}
                           className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                          title="Delete tag"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -359,6 +410,112 @@ export default function SettingsPage() {
           )}
         </div>
       )}
+
+      {/* Notifications */}
+      {tab === "notifications" && (
+        <form onSubmit={handleSaveNotifications} className="max-w-lg space-y-6">
+          {/* Email notifications */}
+          <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-900">Email Notifications</p>
+                <p className="text-xs text-gray-500">Receive alert notifications via email</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={emailAlerts}
+                  onChange={(e) => setEmailAlerts(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
+              </label>
+            </div>
+            {emailAlerts && (
+              <div>
+                <label htmlFor="alert-email" className="block text-xs font-medium text-gray-700 mb-1">
+                  Recipient Email
+                </label>
+                <input
+                  id="alert-email"
+                  type="email"
+                  value={alertEmail}
+                  onChange={(e) => setAlertEmail(e.target.value)}
+                  placeholder="alerts@company.com"
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Slack Webhook */}
+          <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+            <div>
+              <p className="text-sm font-medium text-gray-900">Slack Notifications</p>
+              <p className="text-xs text-gray-500">Post budget alerts to an incoming Slack webhook channel</p>
+            </div>
+            <div>
+              <label htmlFor="slack-webhook" className="block text-xs font-medium text-gray-700 mb-1">
+                Webhook URL
+              </label>
+              <input
+                id="slack-webhook"
+                type="url"
+                value={slackWebhook}
+                onChange={(e) => setSlackWebhook(e.target.value)}
+                placeholder="https://hooks.slack.com/services/..."
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              />
+              <p className="text-xs text-gray-400 mt-1">Leave blank if Slack alerts are not needed.</p>
+            </div>
+          </div>
+
+          {/* Severity threshold */}
+          <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+            <div>
+              <p className="text-sm font-medium text-gray-900">Alert Severity Threshold</p>
+              <p className="text-xs text-gray-500">Choose which alert levels trigger notifications</p>
+            </div>
+            <select
+              value={alertThreshold}
+              onChange={(e) => setAlertThreshold(e.target.value as typeof alertThreshold)}
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+            >
+              <option value="all">All Alerts (Info, Warning, and Critical)</option>
+              <option value="warning_critical">Warning & Critical Only (Recommended)</option>
+              <option value="critical_only">Critical Only (Budget Overages & Anomalies)</option>
+            </select>
+          </div>
+
+          {/* Weekly summary */}
+          <div className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-900">Weekly Spend Summary</p>
+              <p className="text-xs text-gray-500">Receive a weekly digest of spending trends and top models every Monday</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={weeklyDigest}
+                onChange={(e) => setWeeklyDigest(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium rounded px-4 py-2 hover:bg-brand-700 transition-colors"
+          >
+            <Save size={14} />
+            Save Notification Settings
+          </button>
+        </form>
+      )}
+
+      {/* Confirm dialog */}
+      <ConfirmDialogComponent {...dialogProps} />
     </div>
   );
 }

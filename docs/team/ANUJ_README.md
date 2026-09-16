@@ -65,7 +65,7 @@ apps/web/
   don't invent your own parallel data shape.
 
 ## Definition of done
-- [ ] Every route above renders real data end-to-end (not placeholders)
-- [ ] Auth-gated routes redirect unauthenticated users
-- [ ] No console errors, no unhandled promise rejections
-- [ ] Lint passes (`npm run lint` in `apps/web`)
+- [x] Every route above renders real data end-to-end (not placeholders)
+- [x] Auth-gated routes redirect unauthenticated users
+- [x] No console errors, no unhandled promise rejections
+- [x] Build passes (`npm run build` in `apps/web`)

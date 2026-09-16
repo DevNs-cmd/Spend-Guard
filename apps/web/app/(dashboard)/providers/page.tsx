@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   getProviders,
   type ProviderConnection,
 } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/utils";
 import { Plus, RefreshCw, Trash2, CheckCircle, AlertCircle, Loader2, XCircle } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
+import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const PROVIDER_LABELS: Record<string, string> = {
   openai: "OpenAI",
@@ -35,13 +37,22 @@ export default function ProvidersPage() {
   const [newProvider, setNewProvider] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [newApiKey, setNewApiKey] = useState("");
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const { toast } = useToast();
+  const { confirm, dialogProps, ConfirmDialog: ConfirmDialogComponent } = useConfirmDialog();
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
+    setLoading(true);
     getProviders().then((data) => {
       setProviders(data);
       setLoading(false);
+      setLastUpdated(new Date());
     });
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleSync = (id: string) => {
     setSyncingId(id);
@@ -57,6 +68,7 @@ export default function ProvidersPage() {
         )
       );
       setSyncingId(null);
+      toast("Provider synced successfully");
     }, 1500);
   };
 
@@ -75,10 +87,19 @@ export default function ProvidersPage() {
     setNewProvider("");
     setNewLabel("");
     setNewApiKey("");
+    toast(`${connection.label} connected successfully`);
   };
 
-  const handleDelete = (id: string) => {
-    setProviders(providers.filter((p) => p.id !== id));
+  const handleDelete = async (id: string, label: string) => {
+    const confirmed = await confirm({
+      title: "Disconnect provider",
+      message: `Are you sure you want to disconnect "${label}"? Usage data from this provider will no longer be synced.`,
+      confirmLabel: "Disconnect",
+    });
+    if (confirmed) {
+      setProviders(providers.filter((p) => p.id !== id));
+      toast(`${label} disconnected`, "info");
+    }
   };
 
   if (loading) {
@@ -99,7 +120,19 @@ export default function ProvidersPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold text-gray-900">Providers</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold text-gray-900">Providers</h1>
+          {lastUpdated && (
+            <button
+              onClick={loadData}
+              className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              title="Refresh"
+            >
+              <RefreshCw size={12} />
+              <span>Updated {lastUpdated.toLocaleTimeString()}</span>
+            </button>
+          )}
+        </div>
         <button
           onClick={() => setShowDialog(true)}
           className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium rounded px-3 py-1.5 hover:bg-brand-700 transition-colors"
@@ -168,7 +201,7 @@ export default function ProvidersPage() {
                     />
                   </button>
                   <button
-                    onClick={() => handleDelete(p.id)}
+                    onClick={() => handleDelete(p.id, p.label)}
                     className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
                     title="Disconnect"
                   >
@@ -270,6 +303,9 @@ export default function ProvidersPage() {
           </div>
         </div>
       )}
+
+      {/* Confirm dialog */}
+      <ConfirmDialogComponent {...dialogProps} />
     </div>
   );
 }

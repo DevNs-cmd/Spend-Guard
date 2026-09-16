@@ -81,3 +81,15 @@ button, a, input, select, textarea {
   background: var(--gray-200);
   color: var(--gray-900);
 }
+
+/* Animations */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

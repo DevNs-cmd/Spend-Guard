@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   getUsageRecords,
-  getModelBreakdown,
   type UsageRecord,
-  type ModelBreakdown,
 } from "@/lib/api-client";
 import { TokenChart } from "@/components/charts/token-chart";
-import { formatCurrency, formatCompact, formatDateTime } from "@/lib/utils";
-import { Download, Search } from "lucide-react";
+import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { Download, Search, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+
+type SortKey = "timestamp" | "provider" | "model" | "costUsd";
+type SortDir = "asc" | "desc";
 
 export default function UsagePage() {
   const [records, setRecords] = useState<UsageRecord[]>([]);
@@ -17,18 +18,37 @@ export default function UsagePage() {
   const [search, setSearch] = useState("");
   const [providerFilter, setProviderFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
+  const [timeRange, setTimeRange] = useState(30);
+  const [page, setPage] = useState(1);
+  const [sortKey, setSortKey] = useState<SortKey>("timestamp");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const PAGE_SIZE = 25;
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
+    setLoading(true);
     getUsageRecords().then((data) => {
       setRecords(data);
       setLoading(false);
+      setLastUpdated(new Date());
     });
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const providers = [...new Set(records.map((r) => r.provider))];
   const projects = [...new Set(records.map((r) => r.project))];
 
+  // Date range filter
+  const now = new Date();
+  const cutoff = new Date(now);
+  cutoff.setDate(cutoff.getDate() - timeRange);
+
   const filtered = records.filter((r) => {
+    const ts = new Date(r.timestamp);
+    if (ts < cutoff) return false;
     if (providerFilter !== "all" && r.provider !== providerFilter) return false;
     if (projectFilter !== "all" && r.project !== projectFilter) return false;
     if (search) {
@@ -41,6 +61,34 @@ export default function UsagePage() {
     }
     return true;
   });
+
+  // Sorting
+  const sorted = [...filtered].sort((a, b) => {
+    let cmp = 0;
+    switch (sortKey) {
+      case "timestamp":
+        cmp = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+        break;
+      case "provider":
+        cmp = a.provider.localeCompare(b.provider);
+        break;
+      case "model":
+        cmp = a.model.localeCompare(b.model);
+        break;
+      case "costUsd":
+        cmp = a.costUsd - b.costUsd;
+        break;
+    }
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginated = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  // Reset page when filters change
+  useEffect(() => { setPage(1); }, [search, providerFilter, projectFilter, timeRange]);
 
   // Build token chart data grouped by date
   const tokenByDate = new Map<string, { input: number; output: number }>();
@@ -71,6 +119,20 @@ export default function UsagePage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir(key === "timestamp" ? "desc" : "asc");
+    }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ArrowUpDown size={12} className="text-gray-300" />;
+    return sortDir === "asc" ? <ArrowUp size={12} className="text-gray-700" /> : <ArrowDown size={12} className="text-gray-700" />;
+  };
+
   if (loading) {
     return (
       <div>
@@ -90,7 +152,19 @@ export default function UsagePage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold text-gray-900">Usage & Costs</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold text-gray-900">Usage & Costs</h1>
+          {lastUpdated && (
+            <button
+              onClick={loadData}
+              className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              title="Refresh"
+            >
+              <RefreshCw size={12} />
+              <span>Updated {lastUpdated.toLocaleTimeString()}</span>
+            </button>
+          )}
+        </div>
         <button
           onClick={handleExport}
           className="flex items-center gap-1.5 border border-gray-300 text-gray-700 text-sm font-medium rounded px-3 py-1.5 hover:bg-gray-50 transition-colors"
@@ -140,6 +214,22 @@ export default function UsagePage() {
             <option key={p} value={p}>{p}</option>
           ))}
         </select>
+        {/* Date range filter */}
+        <div className="flex gap-1">
+          {[7, 30, 90].map((d) => (
+            <button
+              key={d}
+              onClick={() => setTimeRange(d)}
+              className={`text-xs px-2.5 py-1.5 rounded transition-colors ${
+                timeRange === d
+                  ? "bg-zinc-900 text-white font-medium"
+                  : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 border border-gray-300"
+              }`}
+            >
+              {d}d
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Records table */}
@@ -148,25 +238,45 @@ export default function UsagePage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600">Time</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600">Provider</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600">Model</th>
+                <th
+                  className="text-left px-4 py-2.5 font-medium text-gray-600 cursor-pointer hover:text-gray-900 select-none"
+                  onClick={() => handleSort("timestamp")}
+                >
+                  <span className="flex items-center gap-1">Time <SortIcon col="timestamp" /></span>
+                </th>
+                <th
+                  className="text-left px-4 py-2.5 font-medium text-gray-600 cursor-pointer hover:text-gray-900 select-none"
+                  onClick={() => handleSort("provider")}
+                >
+                  <span className="flex items-center gap-1">Provider <SortIcon col="provider" /></span>
+                </th>
+                <th
+                  className="text-left px-4 py-2.5 font-medium text-gray-600 cursor-pointer hover:text-gray-900 select-none"
+                  onClick={() => handleSort("model")}
+                >
+                  <span className="flex items-center gap-1">Model <SortIcon col="model" /></span>
+                </th>
                 <th className="text-right px-4 py-2.5 font-medium text-gray-600">Input</th>
                 <th className="text-right px-4 py-2.5 font-medium text-gray-600">Output</th>
-                <th className="text-right px-4 py-2.5 font-medium text-gray-600">Cost</th>
+                <th
+                  className="text-right px-4 py-2.5 font-medium text-gray-600 cursor-pointer hover:text-gray-900 select-none"
+                  onClick={() => handleSort("costUsd")}
+                >
+                  <span className="flex items-center justify-end gap-1">Cost <SortIcon col="costUsd" /></span>
+                </th>
                 <th className="text-left px-4 py-2.5 font-medium text-gray-600">Project</th>
                 <th className="text-left px-4 py-2.5 font-medium text-gray-600">User</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {paginated.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                     No records match your filters.
                   </td>
                 </tr>
               ) : (
-                filtered.slice(0, 30).map((r) => (
+                paginated.map((r) => (
                   <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-2.5 text-gray-500 whitespace-nowrap">
                       {formatDateTime(r.timestamp)}
@@ -190,9 +300,31 @@ export default function UsagePage() {
             </tbody>
           </table>
         </div>
-        {filtered.length > 30 && (
-          <div className="px-4 py-2.5 border-t border-gray-200 text-xs text-gray-500">
-            Showing 30 of {filtered.length} records
+        {/* Pagination */}
+        {sorted.length > PAGE_SIZE && (
+          <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-200 bg-gray-50">
+            <p className="text-xs text-gray-500">
+              Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, sorted.length)} of {sorted.length} records
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage <= 1}
+                className="p-1 text-gray-500 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-xs text-gray-600 px-2">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage >= totalPages}
+                className="p-1 text-gray-500 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { getReports, type Report } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/utils";
 import { Plus, FileText, Download, Pause, Play } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 
 export default function ReportsPage() {
   const [reports, setReports] = useState<Report[]>([]);
@@ -13,6 +14,7 @@ export default function ReportsPage() {
   const [formType, setFormType] = useState<Report["type"]>("executive");
   const [formSchedule, setFormSchedule] = useState<Report["schedule"]>("weekly");
   const [formFormat, setFormFormat] = useState<Report["format"]>("pdf");
+  const { toast } = useToast();
 
   useEffect(() => {
     getReports().then((data) => {
@@ -36,16 +38,20 @@ export default function ReportsPage() {
     setReports([...reports, newReport]);
     setShowDialog(false);
     setFormName("");
+    toast(`Report "${formName}" created`);
   };
 
   const toggleStatus = (id: string) => {
+    const report = reports.find((r) => r.id === id);
+    const newStatus = report?.status === "active" ? "paused" : "active";
     setReports(
       reports.map((r) =>
         r.id === id
-          ? { ...r, status: r.status === "active" ? "paused" : "active" }
+          ? { ...r, status: newStatus as Report["status"] }
           : r
       )
     );
+    toast(`Report ${newStatus === "active" ? "resumed" : "paused"}`);
   };
 
   if (loading) {
@@ -140,6 +146,7 @@ export default function ReportsPage() {
                       <button
                         className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
                         title="Download latest"
+                        onClick={() => toast("Download started", "info")}
                       >
                         <Download size={14} />
                       </button>

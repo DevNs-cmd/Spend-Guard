@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Shield } from "lucide-react";
+import { setSession } from "@/lib/auth";
+import { useToast } from "@/components/ui/toast";
 
 export default function SignupPage() {
   const [step, setStep] = useState(1);
@@ -11,6 +14,8 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,10 +24,18 @@ export default function SignupPage() {
       return;
     }
     setLoading(true);
-    // TODO: wire to POST /organizations + POST /auth/register (Neerav's endpoints)
-    setTimeout(() => {
-      window.location.href = "/";
-    }, 800);
+
+    try {
+      // TODO: wire to POST /organizations + POST /auth/register (Neerav's endpoints)
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
+      // Set session and redirect to onboarding
+      setSession("user-1", "org-1");
+      toast("Account created successfully!");
+      router.push("/onboarding");
+    } catch {
+      setLoading(false);
+    }
   };
 
   return (

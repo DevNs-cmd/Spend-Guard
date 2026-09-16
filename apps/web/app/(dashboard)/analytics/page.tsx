@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   getTrends,
   getAnomalies,
@@ -19,24 +19,66 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+
+type SortKey = "model" | "costUsd" | "requests" | "costPerReq" | "costPerKTokens";
+type SortDir = "asc" | "desc";
 
 export default function AnalyticsPage() {
   const [trends, setTrends] = useState<TrendDataPoint[]>([]);
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const [models, setModels] = useState<ModelBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("costUsd");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
+    setLoading(true);
     Promise.all([getTrends(), getAnomalies(), getModelBreakdown()]).then(
       ([t, a, m]) => {
         setTrends(t);
         setAnomalies(a);
         setModels(m);
         setLoading(false);
+        setLastUpdated(new Date());
       }
     );
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ArrowUpDown size={12} className="text-gray-300" />;
+    return sortDir === "asc" ? <ArrowUp size={12} className="text-gray-700" /> : <ArrowDown size={12} className="text-gray-700" />;
+  };
+
+  const sortedModels = [...models].sort((a, b) => {
+    let cmp = 0;
+    const aCostPerReq = a.costUsd / a.requests;
+    const bCostPerReq = b.costUsd / b.requests;
+    const aCostPerK = (a.costUsd / a.tokens) * 1000;
+    const bCostPerK = (b.costUsd / b.tokens) * 1000;
+    switch (sortKey) {
+      case "model": cmp = a.model.localeCompare(b.model); break;
+      case "costUsd": cmp = a.costUsd - b.costUsd; break;
+      case "requests": cmp = a.requests - b.requests; break;
+      case "costPerReq": cmp = aCostPerReq - bCostPerReq; break;
+      case "costPerKTokens": cmp = aCostPerK - bCostPerK; break;
+    }
+    return sortDir === "asc" ? cmp : -cmp;
+  });
 
   if (loading) {
     return (
@@ -51,7 +93,19 @@ export default function AnalyticsPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-gray-900 mb-6">Analytics</h1>
+      <div className="flex items-center gap-3 mb-6">
+        <h1 className="text-xl font-semibold text-gray-900">Analytics</h1>
+        {lastUpdated && (
+          <button
+            onClick={loadData}
+            className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw size={12} />
+            <span>Updated {lastUpdated.toLocaleTimeString()}</span>
+          </button>
+        )}
+      </div>
 
       {/* Trend & Forecast chart */}
       <div className="border border-gray-200 rounded-lg p-5 mb-6">
@@ -204,16 +258,41 @@ export default function AnalyticsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left py-2 font-medium text-gray-600">Model</th>
+                <th
+                  className="text-left py-2 font-medium text-gray-600 cursor-pointer hover:text-gray-900 select-none"
+                  onClick={() => handleSort("model")}
+                >
+                  <span className="flex items-center gap-1">Model <SortIcon col="model" /></span>
+                </th>
                 <th className="text-left py-2 font-medium text-gray-600">Provider</th>
-                <th className="text-right py-2 font-medium text-gray-600">Total Cost</th>
-                <th className="text-right py-2 font-medium text-gray-600">Requests</th>
-                <th className="text-right py-2 font-medium text-gray-600">Cost/Request</th>
-                <th className="text-right py-2 font-medium text-gray-600">Cost/1K Tokens</th>
+                <th
+                  className="text-right py-2 font-medium text-gray-600 cursor-pointer hover:text-gray-900 select-none"
+                  onClick={() => handleSort("costUsd")}
+                >
+                  <span className="flex items-center justify-end gap-1">Total Cost <SortIcon col="costUsd" /></span>
+                </th>
+                <th
+                  className="text-right py-2 font-medium text-gray-600 cursor-pointer hover:text-gray-900 select-none"
+                  onClick={() => handleSort("requests")}
+                >
+                  <span className="flex items-center justify-end gap-1">Requests <SortIcon col="requests" /></span>
+                </th>
+                <th
+                  className="text-right py-2 font-medium text-gray-600 cursor-pointer hover:text-gray-900 select-none"
+                  onClick={() => handleSort("costPerReq")}
+                >
+                  <span className="flex items-center justify-end gap-1">Cost/Request <SortIcon col="costPerReq" /></span>
+                </th>
+                <th
+                  className="text-right py-2 font-medium text-gray-600 cursor-pointer hover:text-gray-900 select-none"
+                  onClick={() => handleSort("costPerKTokens")}
+                >
+                  <span className="flex items-center justify-end gap-1">Cost/1K Tokens <SortIcon col="costPerKTokens" /></span>
+                </th>
               </tr>
             </thead>
             <tbody>
-              {models.map((m) => {
+              {sortedModels.map((m) => {
                 const costPerReq = m.costUsd / m.requests;
                 const costPerKTokens = (m.costUsd / m.tokens) * 1000;
                 return (

@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { getBudgets, type Budget } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
+import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export default function BudgetsPage() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -14,6 +16,8 @@ export default function BudgetsPage() {
   const [formScope, setFormScope] = useState<Budget["scope"]>("project");
   const [formSoft, setFormSoft] = useState("");
   const [formHard, setFormHard] = useState("");
+  const { toast } = useToast();
+  const { confirm, dialogProps, ConfirmDialog: ConfirmDialogComponent } = useConfirmDialog();
 
   useEffect(() => {
     getBudgets().then((data) => {
@@ -51,6 +55,7 @@ export default function BudgetsPage() {
             : b
         )
       );
+      toast("Budget updated");
     } else {
       const newBudget: Budget = {
         id: `b-${Date.now()}`,
@@ -63,8 +68,21 @@ export default function BudgetsPage() {
         period: "monthly",
       };
       setBudgets([...budgets, newBudget]);
+      toast("Budget created");
     }
     setShowDialog(false);
+  };
+
+  const handleDelete = async (b: Budget) => {
+    const confirmed = await confirm({
+      title: "Delete budget",
+      message: `Are you sure you want to delete "${b.name}"? This action cannot be undone.`,
+      confirmLabel: "Delete",
+    });
+    if (confirmed) {
+      setBudgets(budgets.filter((x) => x.id !== b.id));
+      toast(`"${b.name}" deleted`, "info");
+    }
   };
 
   if (loading) {
@@ -139,12 +157,22 @@ export default function BudgetsPage() {
                       {b.scopeLabel} · {b.period}
                     </p>
                   </div>
-                  <button
-                    onClick={() => openEdit(b)}
-                    className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <Pencil size={14} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => openEdit(b)}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
+                      title="Edit"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(b)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Progress bar */}
@@ -268,6 +296,9 @@ export default function BudgetsPage() {
           </div>
         </div>
       )}
+
+      {/* Confirm dialog */}
+      <ConfirmDialogComponent {...dialogProps} />
     </div>
   );
 }

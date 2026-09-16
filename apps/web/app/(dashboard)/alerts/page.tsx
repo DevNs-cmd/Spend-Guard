@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { getAlerts, type Alert } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/utils";
-import { AlertTriangle, AlertCircle, Info, Check } from "lucide-react";
+import { AlertTriangle, AlertCircle, Info, Check, RefreshCw } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 
 const SEVERITY_CONFIG: Record<string, { icon: React.ElementType; bg: string; border: string; text: string; badge: string }> = {
   critical: {
@@ -33,18 +34,27 @@ export default function AlertsPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unresolved">("all");
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const { toast } = useToast();
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
+    setLoading(true);
     getAlerts().then((data) => {
       setAlerts(data);
       setLoading(false);
+      setLastUpdated(new Date());
     });
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleAcknowledge = (id: string) => {
     setAlerts(
       alerts.map((a) => (a.id === id ? { ...a, acknowledged: true } : a))
     );
+    toast("Alert acknowledged");
   };
 
   const filtered =
@@ -78,6 +88,16 @@ export default function AlertsPage() {
             <span className="text-xs bg-red-100 text-red-700 font-medium rounded-full px-2 py-0.5">
               {unresolvedCount} unresolved
             </span>
+          )}
+          {lastUpdated && (
+            <button
+              onClick={loadData}
+              className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              title="Refresh"
+            >
+              <RefreshCw size={12} />
+              <span>Updated {lastUpdated.toLocaleTimeString()}</span>
+            </button>
           )}
         </div>
         <div className="flex gap-1">

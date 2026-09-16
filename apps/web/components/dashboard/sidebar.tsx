@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { logout } from "@/lib/auth";
 import {
   LayoutDashboard,
   Plug,
@@ -16,6 +17,8 @@ import {
   Settings,
   ChevronLeft,
   Shield,
+  LogOut,
+  Building2,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -86,6 +89,53 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {/* User / Org section */}
+      <div className="border-t border-gray-200 px-3 py-3">
+        {!collapsed ? (
+          <div className="space-y-2">
+            {/* Organization */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center w-6 h-6 rounded bg-zinc-100 flex-shrink-0">
+                <Building2 size={12} className="text-zinc-600" />
+              </div>
+              <div className="truncate">
+                <p className="text-xs font-medium text-zinc-900 truncate">Acme Inc.</p>
+                <p className="text-[10px] text-zinc-500 truncate">Growth Plan</p>
+              </div>
+            </div>
+            {/* User + Logout */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-zinc-200 text-zinc-700 text-[10px] font-semibold flex-shrink-0">
+                  A
+                </div>
+                <span className="text-xs text-zinc-600 truncate">anuj@company.com</span>
+              </div>
+              <button
+                onClick={logout}
+                className="p-1 text-zinc-400 hover:text-red-600 transition-colors flex-shrink-0"
+                title="Log out"
+              >
+                <LogOut size={14} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-zinc-200 text-zinc-700 text-[10px] font-semibold">
+              A
+            </div>
+            <button
+              onClick={logout}
+              className="p-1 text-zinc-400 hover:text-red-600 transition-colors"
+              title="Log out"
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Collapse toggle */}
       <button
