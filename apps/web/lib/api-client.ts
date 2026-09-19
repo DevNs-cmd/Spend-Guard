@@ -1,6 +1,9 @@
 // Mock data & API client with live/mock fallback. Owner: Anuj.
 // Uses types from packages/shared-types. Do not redefine DTOs here.
 
+import { getCurrentOrgId } from "./auth";
+import { getTenantData } from "./tenant-store";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 // ── Types (extending shared-types for frontend needs) ──────────────────────
@@ -337,46 +340,77 @@ export async function apiDelete(path: string): Promise<void> {
 // ── Data Fetchers (with mock fallback) ─────────────────────────────────────
 
 export function getUsageSummary(): Promise<UsageSummary> {
-  return tryFetch("/usage/summary", MOCK_SUMMARY);
+  const tenant = getTenantData(getCurrentOrgId());
+  return tryFetch("/usage/summary", tenant.summary);
 }
 
 export function getProviders(): Promise<ProviderConnection[]> {
-  return tryFetch("/providers", MOCK_PROVIDERS);
+  const tenant = getTenantData(getCurrentOrgId());
+  return tryFetch("/providers", tenant.providers);
 }
 
 export function getSpendTimeseries(days = 30): Promise<SpendDataPoint[]> {
-  return tryFetch(`/usage/spend-timeseries?days=${days}`, generateSpendData(days));
+  const tenant = getTenantData(getCurrentOrgId());
+  if (tenant.summary.totalSpendUsd === 0) {
+    return tryFetch(`/usage/spend-timeseries?days=${days}`, []);
+  }
+  const factor = Math.min(1, tenant.summary.totalSpendUsd / 12458.75);
+  const data = generateSpendData(days).map((pt) => ({
+    ...pt,
+    amount: parseFloat((pt.amount * factor).toFixed(2)),
+  }));
+  return tryFetch(`/usage/spend-timeseries?days=${days}`, data);
 }
 
 export function getModelBreakdown(): Promise<ModelBreakdown[]> {
-  return tryFetch("/usage/breakdown", MOCK_MODEL_BREAKDOWN);
+  const tenant = getTenantData(getCurrentOrgId());
+  return tryFetch("/usage/breakdown", tenant.models);
 }
 
 export function getUsageRecords(): Promise<UsageRecord[]> {
-  return tryFetch("/usage/records", MOCK_USAGE_RECORDS);
+  const tenant = getTenantData(getCurrentOrgId());
+  return tryFetch("/usage/records", tenant.usageRecords);
 }
 
 export function getBudgets(): Promise<Budget[]> {
-  return tryFetch("/budgets", MOCK_BUDGETS);
+  const tenant = getTenantData(getCurrentOrgId());
+  return tryFetch("/budgets", tenant.budgets);
 }
 
 export function getAlerts(): Promise<Alert[]> {
-  return tryFetch("/alerts", MOCK_ALERTS);
+  const tenant = getTenantData(getCurrentOrgId());
+  return tryFetch("/alerts", tenant.alerts);
 }
 
 export function getTrends(): Promise<TrendDataPoint[]> {
+  const tenant = getTenantData(getCurrentOrgId());
+  if (tenant.summary.totalSpendUsd === 0) {
+    return tryFetch("/analytics/trends", []);
+  }
   return tryFetch("/analytics/trends", generateTrendData());
 }
 
 export function getAnomalies(): Promise<Anomaly[]> {
+  const tenant = getTenantData(getCurrentOrgId());
+  if (tenant.summary.totalSpendUsd === 0) {
+    return tryFetch("/analytics/anomalies", []);
+  }
   return tryFetch("/analytics/anomalies", MOCK_ANOMALIES);
 }
 
 export function getRecommendations(): Promise<Recommendation[]> {
+  const tenant = getTenantData(getCurrentOrgId());
+  if (tenant.summary.totalSpendUsd === 0) {
+    return tryFetch("/recommendations", []);
+  }
   return tryFetch("/recommendations", MOCK_RECOMMENDATIONS);
 }
 
 export function getReports(): Promise<Report[]> {
+  const tenant = getTenantData(getCurrentOrgId());
+  if (tenant.summary.totalSpendUsd === 0) {
+    return tryFetch("/reports", []);
+  }
   return tryFetch("/reports", MOCK_REPORTS);
 }
 
@@ -385,13 +419,29 @@ export function getPlans(): Promise<BillingPlan[]> {
 }
 
 export function getCurrentPlan(): Promise<CurrentPlan> {
+  const tenant = getTenantData(getCurrentOrgId());
+  if (tenant.summary.totalSpendUsd === 0) {
+    return tryFetch("/billing/plan", {
+      planId: "starter",
+      planName: "Starter",
+      usage: {
+        providers: { used: tenant.providers.length, limit: 2 },
+        projects: { used: 0, limit: 2 },
+        seats: { used: tenant.members.length || 1, limit: 3 },
+      },
+      currentPeriodEnd: "2026-12-31T00:00:00Z",
+    });
+  }
   return tryFetch("/billing/plan", MOCK_CURRENT_PLAN);
 }
 
 export function getMembers(): Promise<OrgMember[]> {
-  return tryFetch("/organizations/members", MOCK_MEMBERS);
+  const tenant = getTenantData(getCurrentOrgId());
+  return tryFetch("/organizations/members", tenant.members);
 }
 
 export function getTags(): Promise<Tag[]> {
-  return tryFetch("/tags", MOCK_TAGS);
+  const tenant = getTenantData(getCurrentOrgId());
+  return tryFetch("/tags", tenant.tags);
 }
+

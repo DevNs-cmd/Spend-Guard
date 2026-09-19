@@ -9,6 +9,8 @@ import { formatDateTime } from "@/lib/utils";
 import { Plus, RefreshCw, Trash2, CheckCircle, AlertCircle, Loader2, XCircle } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { getCurrentOrgId, isViewer } from "@/lib/auth";
+import { addTenantProvider, deleteTenantProvider } from "@/lib/tenant-store";
 
 const PROVIDER_LABELS: Record<string, string> = {
   openai: "OpenAI",
@@ -38,11 +40,13 @@ export default function ProvidersPage() {
   const [newLabel, setNewLabel] = useState("");
   const [newApiKey, setNewApiKey] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [viewerOnly, setViewerOnly] = useState(false);
   const { toast } = useToast();
   const { confirm, dialogProps, ConfirmDialog: ConfirmDialogComponent } = useConfirmDialog();
 
   const loadData = useCallback(() => {
     setLoading(true);
+    setViewerOnly(isViewer());
     getProviders().then((data) => {
       setProviders(data);
       setLoading(false);
@@ -69,19 +73,17 @@ export default function ProvidersPage() {
       );
       setSyncingId(null);
       toast("Provider synced successfully");
-    }, 1500);
+    }, 1200);
   };
 
   const handleConnect = (e: React.FormEvent) => {
     e.preventDefault();
-    const connection: ProviderConnection = {
-      id: `new-${Date.now()}`,
-      provider: newProvider as ProviderConnection["provider"],
+    if (viewerOnly) return;
+    const orgId = getCurrentOrgId();
+    const connection = addTenantProvider(orgId, {
+      provider: newProvider as any,
       label: newLabel || PROVIDER_LABELS[newProvider] || newProvider,
-      status: "active",
-      lastSyncAt: new Date().toISOString(),
-      modelsCount: 4,
-    };
+    });
     setProviders([...providers, connection]);
     setShowDialog(false);
     setNewProvider("");
@@ -91,12 +93,15 @@ export default function ProvidersPage() {
   };
 
   const handleDelete = async (id: string, label: string) => {
+    if (viewerOnly) return;
     const confirmed = await confirm({
       title: "Disconnect provider",
       message: `Are you sure you want to disconnect "${label}"? Usage data from this provider will no longer be synced.`,
       confirmLabel: "Disconnect",
     });
     if (confirmed) {
+      const orgId = getCurrentOrgId();
+      deleteTenantProvider(orgId, id);
       setProviders(providers.filter((p) => p.id !== id));
       toast(`${label} disconnected`, "info");
     }
@@ -119,6 +124,13 @@ export default function ProvidersPage() {
 
   return (
     <div>
+      {/* Role banner for viewers */}
+      {viewerOnly && (
+        <div className="border border-blue-200 bg-blue-50 text-blue-800 text-xs px-4 py-2.5 rounded-lg mb-6 flex items-center justify-between">
+          <span>Read-only access: You have Viewer permissions for this organization. Managing provider integrations requires Admin or Owner role.</span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold text-gray-900">Providers</h1>
@@ -133,13 +145,15 @@ export default function ProvidersPage() {
             </button>
           )}
         </div>
-        <button
-          onClick={() => setShowDialog(true)}
-          className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium rounded px-3 py-1.5 hover:bg-brand-700 transition-colors"
-        >
-          <Plus size={14} />
-          Connect Provider
-        </button>
+        {!viewerOnly && (
+          <button
+            onClick={() => setShowDialog(true)}
+            className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium rounded px-3 py-1.5 hover:bg-brand-700 transition-colors"
+          >
+            <Plus size={14} />
+            Connect Provider
+          </button>
+        )}
       </div>
 
       {providers.length === 0 ? (
@@ -200,13 +214,15 @@ export default function ProvidersPage() {
                       className={syncingId === p.id ? "animate-spin text-zinc-900" : ""}
                     />
                   </button>
-                  <button
-                    onClick={() => handleDelete(p.id, p.label)}
-                    className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
-                    title="Disconnect"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {!viewerOnly && (
+                    <button
+                      onClick={() => handleDelete(p.id, p.label)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+                      title="Disconnect"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
             );

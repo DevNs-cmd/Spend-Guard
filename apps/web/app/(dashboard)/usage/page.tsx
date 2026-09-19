@@ -7,7 +7,8 @@ import {
 } from "@/lib/api-client";
 import { TokenChart } from "@/components/charts/token-chart";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
-import { Download, Search, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Download, Search, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Upload } from "lucide-react";
+import { ImportDataModal } from "@/components/dashboard/import-data-modal";
 
 type SortKey = "timestamp" | "provider" | "model" | "costUsd";
 type SortDir = "asc" | "desc";
@@ -23,6 +24,7 @@ export default function UsagePage() {
   const [sortKey, setSortKey] = useState<SortKey>("timestamp");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
   const PAGE_SIZE = 25;
 
   const loadData = useCallback(() => {
@@ -165,13 +167,22 @@ export default function UsagePage() {
             </button>
           )}
         </div>
-        <button
-          onClick={handleExport}
-          className="flex items-center gap-1.5 border border-gray-300 text-gray-700 text-sm font-medium rounded px-3 py-1.5 hover:bg-gray-50 transition-colors"
-        >
-          <Download size={14} />
-          Export CSV
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold rounded-md px-3 py-1.5 transition-colors shadow-sm"
+          >
+            <Upload size={13} />
+            Enter / Import Spend
+          </button>
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded-md px-3 py-1.5 hover:bg-gray-50 transition-colors"
+          >
+            <Download size={13} />
+            Export CSV
+          </button>
+        </div>
       </div>
 
       {/* Token chart */}
@@ -328,6 +339,12 @@ export default function UsagePage() {
           </div>
         )}
       </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={loadData}
+      />
     </div>
   );
 }

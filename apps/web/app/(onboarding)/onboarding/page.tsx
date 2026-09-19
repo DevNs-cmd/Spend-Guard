@@ -15,6 +15,14 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { getCurrentOrgId, getCurrentOrgName } from "@/lib/auth";
+import {
+  addTenantProvider,
+  addTenantBudget,
+  setTenantSkipped,
+  getTenantData,
+  saveTenantData,
+} from "@/lib/tenant-store";
 
 const PROVIDER_OPTIONS = [
   { key: "openai", label: "OpenAI" },
@@ -58,14 +66,26 @@ export default function OnboardingPage() {
 
   const handleConnectProvider = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: wire to POST /providers (Krrish's endpoint)
+    const orgId = getCurrentOrgId();
+    const selectedLabel = providerLabel || PROVIDER_OPTIONS.find((p) => p.key === providerKey)?.label || providerKey;
+    addTenantProvider(orgId, {
+      provider: providerKey as any,
+      label: selectedLabel,
+    });
     setProviderConnected(true);
-    toast(`${PROVIDER_OPTIONS.find((p) => p.key === providerKey)?.label || providerKey} connected!`);
+    toast(`${selectedLabel} connected!`);
   };
 
   const handleCreateBudget = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: wire to POST /budgets (Gauri's endpoint)
+    const orgId = getCurrentOrgId();
+    addTenantBudget(orgId, {
+      name: budgetName,
+      scope: "organization",
+      scopeLabel: "Entire Org",
+      softLimitUsd: Number(budgetSoft) || 5000,
+      hardLimitUsd: Number(budgetHard) || 10000,
+    });
     setBudgetCreated(true);
     toast("Budget created!");
   };
@@ -74,23 +94,59 @@ export default function OnboardingPage() {
     e.preventDefault();
     if (!inviteEmail) return;
     setInvites([...invites, { email: inviteEmail, role: inviteRole }]);
+    const orgId = getCurrentOrgId();
+    const tenant = getTenantData(orgId);
+    tenant.members.push({
+      id: `m-${Date.now()}`,
+      name: inviteEmail.split("@")[0],
+      email: inviteEmail,
+      role: inviteRole as any,
+      joinedAt: new Date().toISOString(),
+    });
+    saveTenantData(orgId, tenant);
     toast(`Invite added for ${inviteEmail}`);
     setInviteEmail("");
   };
 
   const handleFinish = () => {
-    router.push("/");
+    const orgId = getCurrentOrgId();
+    if (!providerConnected) {
+      setTenantSkipped(orgId, true);
+    }
+    window.location.href = "/";
+  };
+
+  const handleSkipToDashboard = () => {
+    const orgId = getCurrentOrgId();
+    if (!providerConnected) {
+      setTenantSkipped(orgId, true);
+    }
+    window.location.href = "/";
   };
 
   return (
     <div className="flex-1 flex items-center justify-center py-12 px-4">
       <div className="w-full max-w-lg">
+        {/* Top Header Bar with Direct Dashboard Jump */}
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+            Setup Wizard • Step {step} of {TOTAL_STEPS}
+          </span>
+          <button
+            onClick={handleSkipToDashboard}
+            className="text-xs text-zinc-700 hover:text-zinc-950 font-medium flex items-center gap-1 py-1 px-2 rounded hover:bg-zinc-100 transition-colors"
+          >
+            <span>Skip to Dashboard</span>
+            <ArrowRight size={13} />
+          </button>
+        </div>
+
         {/* Logo */}
-        <div className="flex items-center gap-2 justify-center mb-8">
-          <div className="flex items-center justify-center w-9 h-9 rounded bg-zinc-900 text-white">
+        <div className="flex items-center gap-2 justify-center mb-6">
+          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-zinc-900 text-white">
             <Shield size={18} />
           </div>
-          <span className="text-xl font-semibold text-gray-900">SpendGuard</span>
+          <span className="text-xl font-bold text-gray-900">SpendGuard</span>
         </div>
 
         {/* Progress bar */}
@@ -98,7 +154,7 @@ export default function OnboardingPage() {
           {Array.from({ length: TOTAL_STEPS }, (_, i) => (
             <div
               key={i}
-              className={`h-1 flex-1 rounded-full transition-colors ${
+              className={`h-1.5 flex-1 rounded-full transition-colors ${
                 i + 1 <= step ? "bg-zinc-900" : "bg-gray-200"
               }`}
             />
@@ -106,7 +162,7 @@ export default function OnboardingPage() {
         </div>
 
         {/* Step content */}
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 sm:p-8">
           {/* ── Step 1: Welcome ── */}
           {step === 1 && (
             <div>

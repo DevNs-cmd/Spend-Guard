@@ -6,6 +6,8 @@ import { formatCurrency } from "@/lib/utils";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { getCurrentOrgId, isViewer } from "@/lib/auth";
+import { addTenantBudget, updateTenantBudget, deleteTenantBudget } from "@/lib/tenant-store";
 
 export default function BudgetsPage() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -16,10 +18,12 @@ export default function BudgetsPage() {
   const [formScope, setFormScope] = useState<Budget["scope"]>("project");
   const [formSoft, setFormSoft] = useState("");
   const [formHard, setFormHard] = useState("");
+  const [viewerOnly, setViewerOnly] = useState(false);
   const { toast } = useToast();
   const { confirm, dialogProps, ConfirmDialog: ConfirmDialogComponent } = useConfirmDialog();
 
   useEffect(() => {
+    setViewerOnly(isViewer());
     getBudgets().then((data) => {
       setBudgets(data);
       setLoading(false);
@@ -27,6 +31,7 @@ export default function BudgetsPage() {
   }, []);
 
   const openNew = () => {
+    if (viewerOnly) return;
     setEditId(null);
     setFormName("");
     setFormScope("project");
@@ -36,6 +41,7 @@ export default function BudgetsPage() {
   };
 
   const openEdit = (b: Budget) => {
+    if (viewerOnly) return;
     setEditId(b.id);
     setFormName(b.name);
     setFormScope(b.scope);
@@ -46,27 +52,30 @@ export default function BudgetsPage() {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: wire to POST/PUT /budgets (Gauri's endpoint)
+    if (viewerOnly) return;
+    const orgId = getCurrentOrgId();
+
     if (editId) {
-      setBudgets(
-        budgets.map((b) =>
-          b.id === editId
-            ? { ...b, name: formName, scope: formScope, softLimitUsd: Number(formSoft), hardLimitUsd: Number(formHard) }
-            : b
-        )
-      );
+      const existing = budgets.find((b) => b.id === editId);
+      if (!existing) return;
+      const updated: Budget = {
+        ...existing,
+        name: formName,
+        scope: formScope,
+        softLimitUsd: Number(formSoft),
+        hardLimitUsd: Number(formHard),
+      };
+      updateTenantBudget(orgId, updated);
+      setBudgets(budgets.map((b) => (b.id === editId ? updated : b)));
       toast("Budget updated");
     } else {
-      const newBudget: Budget = {
-        id: `b-${Date.now()}`,
+      const newBudget = addTenantBudget(orgId, {
         name: formName,
         scope: formScope,
         scopeLabel: formName,
         softLimitUsd: Number(formSoft),
         hardLimitUsd: Number(formHard),
-        currentSpendUsd: 0,
-        period: "monthly",
-      };
+      });
       setBudgets([...budgets, newBudget]);
       toast("Budget created");
     }
@@ -74,12 +83,15 @@ export default function BudgetsPage() {
   };
 
   const handleDelete = async (b: Budget) => {
+    if (viewerOnly) return;
     const confirmed = await confirm({
       title: "Delete budget",
       message: `Are you sure you want to delete "${b.name}"? This action cannot be undone.`,
       confirmLabel: "Delete",
     });
     if (confirmed) {
+      const orgId = getCurrentOrgId();
+      deleteTenantBudget(orgId, b.id);
       setBudgets(budgets.filter((x) => x.id !== b.id));
       toast(`"${b.name}" deleted`, "info");
     }
@@ -103,38 +115,47 @@ export default function BudgetsPage() {
 
   return (
     <div>
+      {/* Viewer role notification */}
+      {viewerOnly && (
+        <div className="border border-blue-200 bg-blue-50 text-blue-800 text-xs px-4 py-2.5 rounded-lg mb-6 flex items-center justify-between">
+          <span>Read-only access: You have Viewer permissions for this organization. Budget creation and adjustments require Admin or Owner role.</span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold text-gray-900">Budgets</h1>
-        <button
-          onClick={openNew}
-          className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium rounded px-3 py-1.5 hover:bg-brand-700 transition-colors"
-        >
-          <Plus size={14} />
-          New Budget
-        </button>
+        {!viewerOnly && (
+          <button
+            onClick={openNew}
+            className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium rounded px-3 py-1.5 hover:bg-brand-700 transition-colors"
+          >
+            <Plus size={14} />
+            New Budget
+          </button>
+        )}
       </div>
 
       {budgets.length === 0 ? (
         <div className="border border-gray-200 rounded-lg p-12 text-center">
           <p className="text-sm text-gray-500 mb-3">No budgets configured yet.</p>
-          <button
-            onClick={openNew}
-            className="text-sm text-brand-600 hover:text-brand-700 font-medium"
-          >
-            Create your first budget →
-          </button>
+          {!viewerOnly ? (
+            <button
+              onClick={openNew}
+              className="text-sm text-brand-600 hover:text-brand-700 font-medium"
+            >
+              Create your first budget →
+            </button>
+          ) : (
+            <p className="text-xs text-gray-400">Ask an organization Admin to set a spending limit.</p>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
           {budgets.map((b) => {
-            const softPercent = Math.min(
-              (b.currentSpendUsd / b.softLimitUsd) * 100,
-              100
-            );
-            const hardPercent = Math.min(
-              (b.currentSpendUsd / b.hardLimitUsd) * 100,
-              100
-            );
+            const softLimit = b.softLimitUsd || 1;
+            const hardLimit = b.hardLimitUsd || 1;
+            const softPercent = Math.min((b.currentSpendUsd / softLimit) * 100, 100);
+            const hardPercent = Math.min((b.currentSpendUsd / hardLimit) * 100, 100);
             const isOverSoft = b.currentSpendUsd >= b.softLimitUsd;
             const isOverHard = b.currentSpendUsd >= b.hardLimitUsd;
 
@@ -157,22 +178,24 @@ export default function BudgetsPage() {
                       {b.scopeLabel} · {b.period}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => openEdit(b)}
-                      className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
-                      title="Edit"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(b)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                  {!viewerOnly && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openEdit(b)}
+                        className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
+                        title="Edit"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(b)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Progress bar */}

@@ -1,0 +1,51 @@
+Date,Provider,Model,InputTokens,OutputTokens,Cost,Project,User
+2026-09-19T14:22:10Z,openai,GPT-4o,4520,1240,0.0385,Customer Support Bot,alex@company.com
+2026-09-19T13:45:00Z,anthropic,Claude 3.5 Sonnet,8900,2400,0.0627,Code Assistant,dev@company.com
+2026-09-19T12:15:30Z,openai,GPT-4o,12400,3100,0.0985,Executive Search,sarah@company.com
+2026-09-19T11:02:18Z,gemini,Gemini 1.5 Pro,18500,4200,0.0520,Document Parser,analyst@company.com
+2026-09-19T09:30:45Z,openai,GPT-4o-mini,35000,5600,0.0125,Data Enrichment,pipeline@company.com
+2026-09-18T18:14:22Z,openai,GPT-4o,6200,1800,0.0510,Customer Support Bot,alex@company.com
+2026-09-18T16:50:11Z,anthropic,Claude 3.5 Sonnet,14200,4100,0.1035,Code Assistant,dev@company.com
+2026-09-18T15:20:00Z,gemini,Gemini 1.5 Pro,9800,2100,0.0298,Document Parser,analyst@company.com
+2026-09-18T14:05:32Z,openai,GPT-4o,8100,2200,0.0680,Executive Search,sarah@company.com
+2026-09-18T11:40:15Z,openai,text-embedding-3-small,450000,0,0.0090,Search Indexer,pipeline@company.com
+2026-09-17T20:10:05Z,anthropic,Claude 3.5 Sonnet,22100,6800,0.1685,Deep Research,dev@company.com
+2026-09-17T17:45:50Z,openai,GPT-4o,9400,2800,0.0790,Customer Support Bot,alex@company.com
+2026-09-17T15:12:30Z,gemini,Gemini 1.5 Pro,12500,3400,0.0398,Document Parser,analyst@company.com
+2026-09-17T13:00:19Z,openai,GPT-4o-mini,54000,8200,0.0185,Data Enrichment,pipeline@company.com
+2026-09-16T19:30:00Z,openai,GPT-4o,15400,4500,0.1290,Executive Search,sarah@company.com
+2026-09-16T16:15:22Z,anthropic,Claude 3.5 Sonnet,18200,5100,0.1305,Code Assistant,dev@company.com
+2026-09-16T14:40:10Z,gemini,Gemini 1.5 Pro,8400,1900,0.0255,Document Parser,analyst@company.com
+2026-09-16T11:20:45Z,openai,GPT-4o,7800,2100,0.0645,Customer Support Bot,alex@company.com
+2026-09-15T18:05:12Z,anthropic,Claude 3.5 Sonnet,32000,9400,0.2370,Deep Research,dev@company.com
+2026-09-15T15:30:40Z,openai,GPT-4o,11200,3200,0.0915,Executive Search,sarah@company.com
+2026-09-15T12:10:15Z,openai,GPT-4o-mini,88000,14000,0.0310,Data Enrichment,pipeline@company.com
+2026-09-14T21:40:00Z,openai,GPT-4o,16800,4900,0.1410,Executive Search,sarah@company.com
+2026-09-14T17:25:33Z,anthropic,Claude 3.5 Sonnet,15900,4400,0.1145,Code Assistant,dev@company.com
+2026-09-14T14:10:05Z,gemini,Gemini 1.5 Pro,14200,3800,0.0450,Document Parser,analyst@company.com
+2026-09-14T10:00:22Z,openai,GPT-4o,9100,2600,0.0760,Customer Support Bot,alex@company.com
+2026-09-13T19:15:40Z,openai,GPT-4o,13500,3800,0.1110,Executive Search,sarah@company.com
+2026-09-13T16:45:10Z,anthropic,Claude 3.5 Sonnet,24500,7200,0.1825,Deep Research,dev@company.com
+2026-09-13T13:20:55Z,gemini,Gemini 1.5 Pro,10600,2800,0.0335,Document Parser,analyst@company.com
+2026-09-13T09:40:12Z,openai,text-embedding-3-small,620000,0,0.0124,Search Indexer,pipeline@company.com
+2026-09-12T18:50:30Z,openai,GPT-4o,19200,5400,0.1590,Executive Search,sarah@company.com
+2026-09-12T15:10:00Z,anthropic,Claude 3.5 Sonnet,17400,4800,0.1260,Code Assistant,dev@company.com
+2026-09-12T11:35:18Z,openai,GPT-4o,8800,2400,0.0735,Customer Support Bot,alex@company.com
+2026-09-11T20:20:44Z,anthropic,Claude 3.5 Sonnet,28000,8100,0.2070,Deep Research,dev@company.com
+2026-09-11T16:00:15Z,openai,GPT-4o,14600,4100,0.1215,Executive Search,sarah@company.com
+2026-09-11T12:45:30Z,gemini,Gemini 1.5 Pro,16200,4500,0.0515,Document Parser,analyst@company.com
+2026-09-10T19:10:12Z,openai,GPT-4o,10200,2900,0.0845,Customer Support Bot,alex@company.com
+2026-09-10T15:25:00Z,anthropic,Claude 3.5 Sonnet,19800,5600,0.1440,Code Assistant,dev@company.com
+2026-09-10T11:50:20Z,openai,GPT-4o-mini,95000,16500,0.0345,Data Enrichment,pipeline@company.com
+2026-09-09T18:30:15Z,openai,GPT-4o,22400,6200,0.1850,Executive Search,sarah@company.com
+2026-09-09T14:40:50Z,gemini,Gemini 1.5 Pro,11800,3100,0.0375,Document Parser,analyst@company.com
+2026-09-09T10:15:30Z,anthropic,Claude 3.5 Sonnet,16500,4600,0.1200,Code Assistant,dev@company.com
+2026-09-08T21:00:45Z,anthropic,Claude 3.5 Sonnet,34000,9800,0.2520,Deep Research,dev@company.com
+2026-09-08T17:15:20Z,openai,GPT-4o,12800,3600,0.1060,Executive Search,sarah@company.com
+2026-09-08T13:50:00Z,openai,GPT-4o,9700,2700,0.0805,Customer Support Bot,alex@company.com
+2026-09-07T19:40:10Z,gemini,Gemini 1.5 Pro,15400,4200,0.0490,Document Parser,analyst@company.com
+2026-09-07T16:20:30Z,anthropic,Claude 3.5 Sonnet,21000,5900,0.1530,Code Assistant,dev@company.com
+2026-09-07T12:05:15Z,openai,GPT-4o,18100,5100,0.1505,Executive Search,sarah@company.com
+2026-09-06T20:15:00Z,openai,GPT-4o,11500,3200,0.0950,Customer Support Bot,alex@company.com
+2026-09-06T15:45:22Z,anthropic,Claude 3.5 Sonnet,26500,7600,0.1960,Deep Research,dev@company.com
+2026-09-05T18:30:10Z,openai,GPT-4o,25400,7100,0.2100,Executive Search,sarah@company.com

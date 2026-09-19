@@ -4,13 +4,16 @@ import { useEffect, useState } from "react";
 import { getPlans, getCurrentPlan, type BillingPlan, type CurrentPlan } from "@/lib/api-client";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Check, ExternalLink } from "lucide-react";
+import { isViewer } from "@/lib/auth";
 
 export default function BillingPage() {
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [current, setCurrent] = useState<CurrentPlan | null>(null);
   const [loading, setLoading] = useState(true);
+  const [viewerOnly, setViewerOnly] = useState(false);
 
   useEffect(() => {
+    setViewerOnly(isViewer());
     Promise.all([getPlans(), getCurrentPlan()]).then(([p, c]) => {
       setPlans(p);
       setCurrent(c);
@@ -34,6 +37,13 @@ export default function BillingPage() {
 
   return (
     <div>
+      {/* Viewer role banner */}
+      {viewerOnly && (
+        <div className="border border-blue-200 bg-blue-50 text-blue-800 text-xs px-4 py-2.5 rounded-lg mb-6 flex items-center justify-between">
+          <span>Read-only access: Subscription management, plan upgrades, and payment settings are restricted to organization Owners and Admins.</span>
+        </div>
+      )}
+
       <h1 className="text-xl font-semibold text-gray-900 mb-6">Billing</h1>
 
       {/* Current plan */}
@@ -45,10 +55,12 @@ export default function BillingPage() {
               {current.planName}
             </p>
           </div>
-          <button className="flex items-center gap-1.5 border border-gray-300 text-gray-700 text-sm rounded px-3 py-1.5 hover:bg-gray-50 transition-colors">
-            <ExternalLink size={14} />
-            Manage in Stripe
-          </button>
+          {!viewerOnly && (
+            <button className="flex items-center gap-1.5 border border-gray-300 text-gray-700 text-sm rounded px-3 py-1.5 hover:bg-gray-50 transition-colors">
+              <ExternalLink size={14} />
+              Manage in Stripe
+            </button>
+          )}
         </div>
 
         {/* Usage meters */}

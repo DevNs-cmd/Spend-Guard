@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { logout } from "@/lib/auth";
+import { logout, getCurrentOrgName, getCurrentUserEmail, getCurrentUserRole } from "@/lib/auth";
 import {
   LayoutDashboard,
   Plug,
@@ -19,13 +19,15 @@ import {
   Shield,
   LogOut,
   Building2,
+  Upload,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const NAV_ITEMS = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/providers", label: "Providers", icon: Plug },
   { href: "/usage", label: "Usage & Costs", icon: BarChart3 },
+  { href: "/import", label: "Import Data", icon: Upload },
   { href: "/budgets", label: "Budgets", icon: Wallet },
   { href: "/alerts", label: "Alerts", icon: Bell },
   { href: "/analytics", label: "Analytics", icon: TrendingUp },
@@ -38,6 +40,15 @@ const NAV_ITEMS = [
 export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [orgName, setOrgName] = useState("Acme Inc.");
+  const [userEmail, setUserEmail] = useState("anuj@company.com");
+  const [userRole, setUserRole] = useState("owner");
+
+  useEffect(() => {
+    setOrgName(getCurrentOrgName());
+    setUserEmail(getCurrentUserEmail());
+    setUserRole(getCurrentUserRole());
+  }, []);
 
   return (
     <aside
@@ -100,17 +111,30 @@ export function Sidebar() {
                 <Building2 size={12} className="text-zinc-600" />
               </div>
               <div className="truncate">
-                <p className="text-xs font-medium text-zinc-900 truncate">Acme Inc.</p>
-                <p className="text-[10px] text-zinc-500 truncate">Growth Plan</p>
+                <p className="text-xs font-medium text-zinc-900 truncate">{orgName}</p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span
+                    className={cn(
+                      "text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.2 rounded border",
+                      userRole === "viewer"
+                        ? "bg-blue-50 text-blue-700 border-blue-200"
+                        : userRole === "admin"
+                        ? "bg-purple-50 text-purple-700 border-purple-200"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    )}
+                  >
+                    {userRole}
+                  </span>
+                </div>
               </div>
             </div>
             {/* User + Logout */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 min-w-0">
                 <div className="flex items-center justify-center w-6 h-6 rounded-full bg-zinc-200 text-zinc-700 text-[10px] font-semibold flex-shrink-0">
-                  A
+                  {userEmail[0]?.toUpperCase() || "U"}
                 </div>
-                <span className="text-xs text-zinc-600 truncate">anuj@company.com</span>
+                <span className="text-xs text-zinc-600 truncate">{userEmail}</span>
               </div>
               <button
                 onClick={logout}
@@ -124,7 +148,7 @@ export function Sidebar() {
         ) : (
           <div className="flex flex-col items-center gap-2">
             <div className="flex items-center justify-center w-6 h-6 rounded-full bg-zinc-200 text-zinc-700 text-[10px] font-semibold">
-              A
+              {userEmail[0]?.toUpperCase() || "U"}
             </div>
             <button
               onClick={logout}

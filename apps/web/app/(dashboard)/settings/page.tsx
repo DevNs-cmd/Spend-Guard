@@ -6,6 +6,8 @@ import { formatDate } from "@/lib/utils";
 import { Plus, Trash2, UserPlus, Bell, Building2, Users, Tags, Save } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { getCurrentOrgId, getCurrentOrgName, isViewer } from "@/lib/auth";
+import { getTenantData, saveTenantData } from "@/lib/tenant-store";
 
 type SettingsTab = "general" | "members" | "tags" | "notifications";
 
@@ -21,6 +23,7 @@ export default function SettingsPage() {
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewerOnly, setViewerOnly] = useState(false);
 
   // General form
   const [orgName, setOrgName] = useState("Acme Inc.");
@@ -46,6 +49,8 @@ export default function SettingsPage() {
   const { confirm, dialogProps, ConfirmDialog: ConfirmDialogComponent } = useConfirmDialog();
 
   useEffect(() => {
+    setViewerOnly(isViewer());
+    setOrgName(getCurrentOrgName());
     Promise.all([getMembers(), getTags()]).then(([m, t]) => {
       setMembers(m);
       setTags(t);
@@ -55,12 +60,18 @@ export default function SettingsPage() {
 
   const handleSaveGeneral = (e: React.FormEvent) => {
     e.preventDefault();
+    if (viewerOnly) return;
+    const orgId = getCurrentOrgId();
+    const tenant = getTenantData(orgId);
+    tenant.orgName = orgName;
+    saveTenantData(orgId, tenant);
     toast("Organization settings saved");
   };
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: wire to POST /organizations/:id/members (Neerav's endpoint)
+    if (viewerOnly) return;
+    const orgId = getCurrentOrgId();
     const newMember: OrgMember = {
       id: `m-${Date.now()}`,
       name: inviteEmail.split("@")[0],
@@ -68,58 +79,87 @@ export default function SettingsPage() {
       role: inviteRole,
       joinedAt: new Date().toISOString(),
     };
-    setMembers([...members, newMember]);
+    const updated = [...members, newMember];
+    setMembers(updated);
+    const tenant = getTenantData(orgId);
+    tenant.members = updated;
+    saveTenantData(orgId, tenant);
     setShowInvite(false);
     toast(`Invite sent to ${inviteEmail}`);
     setInviteEmail("");
   };
 
   const handleRemoveMember = async (id: string, name: string) => {
+    if (viewerOnly) return;
     const confirmed = await confirm({
       title: "Remove team member",
       message: `Are you sure you want to remove "${name}" from this organization? They will lose access to SpendGuard immediately.`,
       confirmLabel: "Remove member",
     });
     if (confirmed) {
-      setMembers(members.filter((m) => m.id !== id));
+      const orgId = getCurrentOrgId();
+      const updated = members.filter((m) => m.id !== id);
+      setMembers(updated);
+      const tenant = getTenantData(orgId);
+      tenant.members = updated;
+      saveTenantData(orgId, tenant);
       toast(`Removed ${name}`, "info");
     }
   };
 
   const handleAddTag = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: wire to POST /tags (Vedant's endpoint)
+    if (viewerOnly) return;
+    const orgId = getCurrentOrgId();
     const newTag: Tag = {
       id: `t-${Date.now()}`,
       key: newTagKey,
       value: newTagValue,
       usageCount: 0,
     };
-    setTags([...tags, newTag]);
+    const updated = [...tags, newTag];
+    setTags(updated);
+    const tenant = getTenantData(orgId);
+    tenant.tags = updated;
+    saveTenantData(orgId, tenant);
     toast(`Tag "${newTagKey}: ${newTagValue}" added`);
     setNewTagKey("");
     setNewTagValue("");
   };
 
   const handleRemoveTag = async (id: string, key: string, value: string) => {
+    if (viewerOnly) return;
     const confirmed = await confirm({
       title: "Delete tag",
       message: `Are you sure you want to delete tag "${key}: ${value}"? Records with this tag will retain it as legacy data.`,
       confirmLabel: "Delete tag",
     });
     if (confirmed) {
-      setTags(tags.filter((t) => t.id !== id));
+      const orgId = getCurrentOrgId();
+      const updated = tags.filter((t) => t.id !== id);
+      setTags(updated);
+      const tenant = getTenantData(orgId);
+      tenant.tags = updated;
+      saveTenantData(orgId, tenant);
       toast(`Tag "${key}: ${value}" deleted`, "info");
     }
   };
 
   const handleSaveNotifications = (e: React.FormEvent) => {
     e.preventDefault();
+    if (viewerOnly) return;
     toast("Notification settings saved");
   };
 
   return (
     <div>
+      {/* Viewer role banner */}
+      {viewerOnly && (
+        <div className="border border-blue-200 bg-blue-50 text-blue-800 text-xs px-4 py-2.5 rounded-lg mb-6 flex items-center justify-between">
+          <span>Read-only access: You have Viewer permissions for this organization. Changing workspace settings, managing members, or altering webhooks requires Admin or Owner role.</span>
+        </div>
+      )}
+
       <h1 className="text-xl font-semibold text-gray-900 mb-6">Settings</h1>
 
       {/* Tabs */}
@@ -164,8 +204,9 @@ export default function SettingsPage() {
               id="settings-org-name"
               type="text"
               value={orgName}
+              disabled={viewerOnly}
               onChange={(e) => setOrgName(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 disabled:bg-gray-50 disabled:text-gray-500"
             />
           </div>
           <div>
@@ -178,8 +219,9 @@ export default function SettingsPage() {
             <select
               id="settings-timezone"
               value={timezone}
+              disabled={viewerOnly}
               onChange={(e) => setTimezone(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 disabled:bg-gray-50 disabled:text-gray-500"
             >
               <option value="UTC">UTC</option>
               <option value="America/New_York">Eastern Time</option>
@@ -189,13 +231,15 @@ export default function SettingsPage() {
               <option value="Asia/Kolkata">India (IST)</option>
             </select>
           </div>
-          <button
-            type="submit"
-            className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium rounded px-4 py-2 hover:bg-brand-700 transition-colors"
-          >
-            <Save size={14} />
-            Save Changes
-          </button>
+          {!viewerOnly && (
+            <button
+              type="submit"
+              className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium rounded px-4 py-2 hover:bg-brand-700 transition-colors"
+            >
+              <Save size={14} />
+              Save Changes
+            </button>
+          )}
         </form>
       )}
 
@@ -206,13 +250,15 @@ export default function SettingsPage() {
             <p className="text-sm text-gray-500">
               {members.length} member{members.length !== 1 ? "s" : ""}
             </p>
-            <button
-              onClick={() => setShowInvite(true)}
-              className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium rounded px-3 py-1.5 hover:bg-brand-700 transition-colors"
-            >
-              <UserPlus size={14} />
-              Invite Member
-            </button>
+            {!viewerOnly && (
+              <button
+                onClick={() => setShowInvite(true)}
+                className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium rounded px-3 py-1.5 hover:bg-brand-700 transition-colors"
+              >
+                <UserPlus size={14} />
+                Invite Member
+              </button>
+            )}
           </div>
 
           {loading ? (
@@ -245,7 +291,7 @@ export default function SettingsPage() {
                       </td>
                       <td className="px-4 py-2.5 text-gray-500">{formatDate(m.joinedAt)}</td>
                       <td className="px-4 py-2.5 text-right">
-                        {m.role !== "owner" && (
+                        {!viewerOnly && m.role !== "owner" && (
                           <button
                             onClick={() => handleRemoveMember(m.id, m.name)}
                             className="p-1 text-gray-400 hover:text-red-600 transition-colors"
@@ -323,46 +369,48 @@ export default function SettingsPage() {
       {/* Tags */}
       {tab === "tags" && (
         <div>
-          <form
-            onSubmit={handleAddTag}
-            className="flex items-end gap-3 mb-4"
-          >
-            <div>
-              <label htmlFor="tag-key" className="block text-sm font-medium text-gray-700 mb-1">
-                Key
-              </label>
-              <input
-                id="tag-key"
-                type="text"
-                value={newTagKey}
-                onChange={(e) => setNewTagKey(e.target.value)}
-                placeholder="environment"
-                required
-                className="border border-gray-300 rounded px-3 py-1.5 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-              />
-            </div>
-            <div>
-              <label htmlFor="tag-value" className="block text-sm font-medium text-gray-700 mb-1">
-                Value
-              </label>
-              <input
-                id="tag-value"
-                type="text"
-                value={newTagValue}
-                onChange={(e) => setNewTagValue(e.target.value)}
-                placeholder="production"
-                required
-                className="border border-gray-300 rounded px-3 py-1.5 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-              />
-            </div>
-            <button
-              type="submit"
-              className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium rounded px-3 py-1.5 hover:bg-brand-700 transition-colors"
+          {!viewerOnly && (
+            <form
+              onSubmit={handleAddTag}
+              className="flex items-end gap-3 mb-4"
             >
-              <Plus size={14} />
-              Add Tag
-            </button>
-          </form>
+              <div>
+                <label htmlFor="tag-key" className="block text-sm font-medium text-gray-700 mb-1">
+                  Key
+                </label>
+                <input
+                  id="tag-key"
+                  type="text"
+                  value={newTagKey}
+                  onChange={(e) => setNewTagKey(e.target.value)}
+                  placeholder="environment"
+                  required
+                  className="border border-gray-300 rounded px-3 py-1.5 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="tag-value" className="block text-sm font-medium text-gray-700 mb-1">
+                  Value
+                </label>
+                <input
+                  id="tag-value"
+                  type="text"
+                  value={newTagValue}
+                  onChange={(e) => setNewTagValue(e.target.value)}
+                  placeholder="production"
+                  required
+                  className="border border-gray-300 rounded px-3 py-1.5 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                />
+              </div>
+              <button
+                type="submit"
+                className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium rounded px-3 py-1.5 hover:bg-brand-700 transition-colors"
+              >
+                <Plus size={14} />
+                Add Tag
+              </button>
+            </form>
+          )}
 
           {loading ? (
             <div className="space-y-2">
@@ -394,13 +442,15 @@ export default function SettingsPage() {
                         {t.usageCount.toLocaleString()}
                       </td>
                       <td className="px-4 py-2.5 text-right">
-                        <button
-                          onClick={() => handleRemoveTag(t.id, t.key, t.value)}
-                          className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                          title="Delete tag"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {!viewerOnly && (
+                          <button
+                            onClick={() => handleRemoveTag(t.id, t.key, t.value)}
+                            className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                            title="Delete tag"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -425,6 +475,7 @@ export default function SettingsPage() {
                 <input
                   type="checkbox"
                   checked={emailAlerts}
+                  disabled={viewerOnly}
                   onChange={(e) => setEmailAlerts(e.target.checked)}
                   className="sr-only peer"
                 />
@@ -440,9 +491,10 @@ export default function SettingsPage() {
                   id="alert-email"
                   type="email"
                   value={alertEmail}
+                  disabled={viewerOnly}
                   onChange={(e) => setAlertEmail(e.target.value)}
                   placeholder="alerts@company.com"
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 disabled:bg-gray-50 disabled:text-gray-500"
                 />
               </div>
             )}
@@ -462,9 +514,10 @@ export default function SettingsPage() {
                 id="slack-webhook"
                 type="url"
                 value={slackWebhook}
+                disabled={viewerOnly}
                 onChange={(e) => setSlackWebhook(e.target.value)}
                 placeholder="https://hooks.slack.com/services/..."
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 disabled:bg-gray-50 disabled:text-gray-500"
               />
               <p className="text-xs text-gray-400 mt-1">Leave blank if Slack alerts are not needed.</p>
             </div>
@@ -478,8 +531,9 @@ export default function SettingsPage() {
             </div>
             <select
               value={alertThreshold}
+              disabled={viewerOnly}
               onChange={(e) => setAlertThreshold(e.target.value as typeof alertThreshold)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 disabled:bg-gray-50 disabled:text-gray-500"
             >
               <option value="all">All Alerts (Info, Warning, and Critical)</option>
               <option value="warning_critical">Warning & Critical Only (Recommended)</option>
@@ -497,6 +551,7 @@ export default function SettingsPage() {
               <input
                 type="checkbox"
                 checked={weeklyDigest}
+                disabled={viewerOnly}
                 onChange={(e) => setWeeklyDigest(e.target.checked)}
                 className="sr-only peer"
               />
@@ -504,13 +559,15 @@ export default function SettingsPage() {
             </label>
           </div>
 
-          <button
-            type="submit"
-            className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium rounded px-4 py-2 hover:bg-brand-700 transition-colors"
-          >
-            <Save size={14} />
-            Save Notification Settings
-          </button>
+          {!viewerOnly && (
+            <button
+              type="submit"
+              className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium rounded px-4 py-2 hover:bg-brand-700 transition-colors"
+            >
+              <Save size={14} />
+              Save Notification Settings
+            </button>
+          )}
         </form>
       )}
 

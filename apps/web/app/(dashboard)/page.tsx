@@ -15,7 +15,8 @@ import {
   type Alert,
 } from "@/lib/api-client";
 import { formatCurrency, formatCompact, formatPercent } from "@/lib/utils";
-import { AlertTriangle, RefreshCw, Plug, ArrowRight } from "lucide-react";
+import { AlertTriangle, RefreshCw, Plug, ArrowRight, Upload } from "lucide-react";
+import { ImportDataModal } from "@/components/dashboard/import-data-modal";
 
 export default function OverviewPage() {
   const [summary, setSummary] = useState<UsageSummary | null>(null);
@@ -25,6 +26,7 @@ export default function OverviewPage() {
   const [timeRange, setTimeRange] = useState(30);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -88,32 +90,50 @@ export default function OverviewPage() {
             </button>
           )}
         </div>
-        <Link
-          href="/providers"
-          className="hidden sm:flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-900 transition-colors border border-gray-200 rounded px-2.5 py-1.5 hover:bg-gray-50"
-        >
-          <Plug size={13} />
-          Manage Providers
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-1.5 text-xs text-zinc-800 bg-white hover:bg-zinc-50 border border-gray-300 rounded-md px-2.5 py-1.5 font-medium transition-colors shadow-sm"
+          >
+            <Upload size={13} className="text-zinc-600" />
+            <span>Enter Spend Till Date</span>
+          </button>
+          <Link
+            href="/providers"
+            className="hidden sm:flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-900 transition-colors border border-gray-200 rounded-md px-2.5 py-1.5 hover:bg-gray-50"
+          >
+            <Plug size={13} />
+            Manage Providers
+          </Link>
+        </div>
       </div>
 
       {/* Zero State for New Users without usage */}
       {isZeroState && (
-        <div className="border border-zinc-200 bg-zinc-50 rounded-lg p-6 mb-6">
+        <div className="border border-zinc-200 bg-zinc-50/80 rounded-xl p-6 mb-6">
           <div className="max-w-xl">
             <h2 className="text-base font-semibold text-gray-900 mb-1">
-              Welcome to your SpendGuard dashboard! 🚀
+              No data available yet
             </h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Connect your first AI provider (OpenAI, Anthropic, Gemini, Mistral, Azure, or Bedrock) to start capturing real-time token usage, cost breakdowns, and budget anomalies.
+            <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+              You haven&apos;t connected an AI provider or entered historical usage yet. You can either enter your existing spend till date to see immediate analytics, or connect an API key for live streaming telemetry.
             </p>
-            <Link
-              href="/providers"
-              className="inline-flex items-center gap-1.5 bg-zinc-900 text-white text-sm font-medium rounded px-4 py-2 hover:bg-zinc-800 transition-colors"
-            >
-              Connect Provider
-              <ArrowRight size={14} />
-            </Link>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="inline-flex items-center gap-1.5 bg-zinc-900 text-white text-sm font-medium rounded-lg px-4 py-2 hover:bg-zinc-800 transition-colors shadow-sm"
+              >
+                <Upload size={14} />
+                Enter Existing Spend Till Date
+              </button>
+              <Link
+                href="/providers"
+                className="inline-flex items-center gap-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg px-4 py-2 hover:bg-gray-50 transition-colors"
+              >
+                Connect Live API Key
+                <ArrowRight size={14} />
+              </Link>
+            </div>
           </div>
         </div>
       )}
@@ -185,7 +205,20 @@ export default function OverviewPage() {
             ))}
           </div>
         </div>
-        <SpendChart data={spendData} />
+        {spendData.length === 0 ? (
+          <div className="h-48 flex flex-col items-center justify-center text-center p-6 border border-dashed border-gray-200 rounded-lg">
+            <p className="text-sm font-medium text-gray-700 mb-1">No spend data available yet</p>
+            <p className="text-xs text-gray-400 mb-3">Connect an AI provider to start recording cost trends.</p>
+            <Link
+              href="/providers"
+              className="text-xs font-medium text-zinc-900 border border-gray-300 rounded px-3 py-1.5 hover:bg-gray-50 transition-colors"
+            >
+              Connect Provider →
+            </Link>
+          </div>
+        ) : (
+          <SpendChart data={spendData} />
+        )}
       </div>
 
       {/* Model Breakdown */}
@@ -219,6 +252,12 @@ export default function OverviewPage() {
           </div>
         )}
       </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={loadData}
+      />
     </div>
   );
 }
