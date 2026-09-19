@@ -26,4 +26,12 @@ export const PRICING_TABLE: Record<
       cached: 0.0003,
     },
   },
+
+  gemini: {
+    "gemini-3.7-flash": {
+      input: 0.00075,
+      output: 0.00375,
+      cached: 0.000075,
+    },
+  },
 };
