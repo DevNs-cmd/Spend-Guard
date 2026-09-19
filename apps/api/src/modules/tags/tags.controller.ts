@@ -1,5 +1,11 @@
-// Endpoints: GET /tags, POST /tags, POST /usage/:id/tags
-import { Controller, Get, Post } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+} from "@nestjs/common";
+
 import { TagsService } from "./tags.service";
 
 @Controller("tags")
@@ -7,12 +13,35 @@ export class TagsController {
   constructor(private readonly tagsService: TagsService) {}
 
   @Get()
-  findAll() {
-    return this.tagsService.findAll();
+  findAll(
+    @Body("organizationId") organizationId: string,
+  ) {
+    return this.tagsService.findAll(organizationId);
   }
 
   @Post()
-  create() {
-    return this.tagsService.create();
+  create(
+    @Body("organizationId") organizationId: string,
+    @Body("key") key: string,
+    @Body("value") value: string,
+  ) {
+    return this.tagsService.create(
+      organizationId,
+      key,
+      value,
+    );
+  }
+
+  @Post("/usage/:id/tags")
+  attachToUsage(
+    @Param("id") usageRecordId: string,
+    @Body("organizationId") organizationId: string,
+    @Body("tagId") tagId: string,
+  ) {
+    return this.tagsService.attachToUsage(
+      organizationId,
+      usageRecordId,
+      tagId,
+    );
   }
 }
