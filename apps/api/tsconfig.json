@@ -5,6 +5,7 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "strict": true,
+    "strictPropertyInitialization": false,
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": { "@/*": ["src/*"] }
