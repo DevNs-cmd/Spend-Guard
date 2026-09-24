@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { PRICING_TABLE } from "../../usage/cost-calculator/pricing-table";
+import { PRICING_TABLE, ModelPricing } from "../../usage/cost-calculator/pricing-table";
 import { ModelUsageAggregate } from "../interfaces/usage-source.interface";
 
 export type RecommendationType =
@@ -49,8 +49,15 @@ export class RecommendationEngineService {
     // use of a premium model is a good candidate for downgrading.
     if (agg.avgInputTokensPerRequest > SMALL_TASK_TOKEN_THRESHOLD) return [];
 
-    const currentPricing = PRICING_TABLE[agg.model];
-    const altPricing = PRICING_TABLE[alternative];
+    const findPricing = (model: string): ModelPricing | undefined => {
+      for (const provider of Object.values(PRICING_TABLE)) {
+        if (provider[model]) return provider[model];
+      }
+      return undefined;
+    };
+
+    const currentPricing = findPricing(agg.model);
+    const altPricing = findPricing(alternative);
 
     let estimatedSavingsUsd: number | null = null;
     if (currentPricing && altPricing) {

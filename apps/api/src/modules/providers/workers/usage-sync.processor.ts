@@ -47,7 +47,18 @@ export class UsageSyncProcessor extends WorkerHost {
       const rows = await connector.fetchUsage(connection.id, connection.organizationId, since);
 
       if (rows.length > 0) {
-        this.usageService.ingest(rows);
+        await this.usageService.ingest(
+          rows.map((r, i) => ({
+            organizationId: r.organizationId,
+            providerConnectionId: r.providerConnectionId,
+            sourceRecordId: (r as any).sourceRecordId ?? `sync-${r.providerConnectionId}-${r.occurredAt.getTime()}-${i}`,
+            model: r.model,
+            inputTokens: r.inputTokens,
+            outputTokens: r.outputTokens,
+            cachedTokens: r.cachedTokens,
+            occurredAt: r.occurredAt,
+          })),
+        );
       }
 
       await this.providersService.recordSyncSuccess(connection.id, new Date());

@@ -1,11 +1,41 @@
-// Alert: fired instance of a budget threshold or forecast breach.
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from "typeorm";
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  Unique,
+  Index,
+} from "typeorm";
 
-@Entity()
+export type AlertSeverity = "soft" | "hard" | "forecast";
+
+@Entity("alert")
+@Unique("UQ_alert_budget_severity_period", ["budgetId", "severity", "periodKey"])
+@Index(["organizationId", "firedAt"])
 export class Alert {
-  @PrimaryGeneratedColumn("uuid") id: string;
-  @Column() organizationId: string;
-  @Column() budgetId: string;
-  @Column() severity: "soft" | "hard" | "forecast";
-  @CreateDateColumn() firedAt: Date;
+  @PrimaryGeneratedColumn("uuid")
+  id: string;
+
+  @Column()
+  organizationId: string;
+
+  @Column()
+  budgetId: string;
+
+  @Column({
+    type: "varchar",
+  })
+  severity: AlertSeverity;
+
+  @Column("decimal", { precision: 12, scale: 2, nullable: true })
+  currentSpendUsd: string;
+
+  @Column("decimal", { precision: 12, scale: 2, nullable: true })
+  thresholdUsd: string;
+
+  @Column({ type: "varchar" })
+  periodKey: string;
+
+  @CreateDateColumn({ type: "timestamptz" })
+  firedAt: Date;
 }
