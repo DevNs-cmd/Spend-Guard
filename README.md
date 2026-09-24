@@ -44,25 +44,6 @@ spendguard/
 | Vedant  | `apps/api/src/modules/usage/**`, `apps/api/src/modules/tags/**`         |
 | Gauri   | `apps/api/src/modules/budgets/**`, `apps/api/src/modules/reports/**`, `apps/api/src/modules/billing/**` |
 
-**Rule: only edit files inside your own module folder(s).** Shared files
-(`apps/api/src/common/**`, `apps/api/src/app.module.ts`, `packages/shared-types/**`,
-`docker-compose.yml`) are edited only via PR + review, never pushed to directly —
-see `docs/GIT_WORKFLOW.md`.
-
-Full task breakdown for each person is in `docs/team/<NAME>_README.md`.
-Read yours before writing any code.
-
-## Development Priority Order (strict — do not skip ahead)
-1. Auth + Organizations + basic Provider connection (Neerav, Krrish)
-2. Usage & cost data sync + storage (Krrish, Vedant)
-3. Core cost dashboard + breakdowns (Anuj, Vedant)
-4. Tagging & attribution system (Vedant)
-5. Budgets & alerts (Gauri)
-6. Trends & basic analytics (Krrish)
-7. Optimization recommendations (Krrish)
-8. Reporting + Slack/email notifications (Gauri)
-9. Billing (Gauri)
-
 ## Getting Started
 ```bash
 cp .env.example .env
@@ -70,7 +51,3 @@ docker compose up -d          # postgres + redis
 cd apps/api && npm install && npm run start:dev
 cd apps/web && npm install && npm run dev
 ```
-
-## Deadline
-**20 September** — strict, no extensions. Real production project: no unfinished
-features, no unhandled errors, clean/secure/scalable code, light purple theme on the UI.
